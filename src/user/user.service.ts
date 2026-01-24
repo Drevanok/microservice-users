@@ -1,103 +1,142 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { UserDTO } from './dto/user.dto';
-import { IUser } from 'src/common/interfaces/user.interface';
-import * as bcrypt from 'bcrypt';
-import { USER } from 'src/common/models/models';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { RpcException } from '@nestjs/microservices';
+import * as bcrypt from 'bcrypt';
+
+import { UserDTO } from './dto/user.dto';
+import { IUser } from 'src/common/interfaces/user.interface';
+import { USER } from 'src/common/models/models';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectModel(USER.name) private readonly model: Model<IUser>) {}
-
-  async checkPassword(password: string, passwordDB: string): Promise<Boolean> {
-    return await bcrypt.compare(password, passwordDB);
-  }
-  async findByUsername(username: string) {
-    return await this.model.findOne({ username });
-  }
+  constructor(
+    @InjectModel(USER.name)
+    private readonly model: Model<IUser>,
+  ) {}
 
   async hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt(10);
-    return await bcrypt.hash(password, salt);
+    return bcrypt.hash(password, salt);
   }
+
+  async checkPassword(password: string, passwordDB: string): Promise<boolean> {
+    return bcrypt.compare(password, passwordDB);
+  }
+
+  async findByUsername(username: string): Promise<IUser | null> {
+    return this.model.findOne({ username });
+  }
+
 
   async createUser(userDto: UserDTO): Promise<IUser> {
     const { username, email, password } = userDto;
 
     const emailExist = await this.model.findOne({ email });
     if (emailExist) {
-      throw new Error('Email already exists');
+      throw new RpcException({
+        message: 'Email already exists',
+        statusCode: 409,
+      });
     }
 
     const userNameExist = await this.model.findOne({ username });
     if (userNameExist) {
-      throw new Error('Username already exists');
+      throw new RpcException({
+        message: 'Username already exists',
+        statusCode: 409,
+      });
     }
 
     const hashedPassword = await this.hashPassword(password);
+    const newUser = new this.model({
+      ...userDto,
+      password: hashedPassword,
+    });
 
-    const newUser = new this.model({ ...userDto, password: hashedPassword });
-
-    return await newUser.save();
+    return newUser.save();
   }
 
   async findAllUsers(): Promise<IUser[]> {
-    const users = await this.model.find();
-
-    if (!users || users.length === 0) {
-      throw new Error('No users found');
-    }
-
-    return users;
+    return this.model.find();
   }
 
   async findOne(id: string): Promise<IUser> {
     const user = await this.model.findById(id);
+
     if (!user) {
-      throw new Error('User not found');
+      throw new RpcException({
+        message: 'User not found',
+        statusCode: 404,
+      });
     }
+
     return user;
   }
 
   async updateUser(id: string, userDto: UserDTO): Promise<IUser> {
     const { username, email, password } = userDto;
-    const hash = await this.hashPassword(password);
 
     const userExists = await this.model.findById(id);
     if (!userExists) {
-      throw new Error('User not found');
+      throw new RpcException({
+        message: 'User not found',
+        statusCode: 404,
+      });
     }
 
-    //check if email or username already exists
     const emailExist = await this.model.findOne({ email });
-    if (emailExist && emailExist.id !== id) {
-      throw new Error('Email already exists');
+    if (emailExist && emailExist._id.toString() !== id) {
+      throw new RpcException({
+        message: 'Email already exists',
+        statusCode: 409,
+      });
     }
 
     const userNameExist = await this.model.findOne({ username });
-    if (userNameExist && userNameExist.id !== id) {
-      throw new Error('Username already exists');
+    if (userNameExist && userNameExist._id.toString() !== id) {
+      throw new RpcException({
+        message: 'Username already exists',
+        statusCode: 409,
+      });
     }
 
-    const user = { ...userDto, password: hash };
-    const userUpdate = await this.model.findByIdAndUpdate(id, user, {
-      new: true,
-    });
+    const hashedPassword = password
+      ? await this.hashPassword(password)
+      : userExists.password;
 
-    if (!userUpdate) {
-      throw new HttpException('Error updating user', HttpStatus.NOT_FOUND);
+    const updatedUser = await this.model.findByIdAndUpdate(
+      id,
+      {
+        ...userDto,
+        password: hashedPassword,
+      },
+      { new: true },
+    );
+
+    if (!updatedUser) {
+      throw new RpcException({
+        message: 'Error updating user',
+        statusCode: 400,
+      });
     }
 
-    return userUpdate;
+    return updatedUser;
   }
 
   async deleteUser(id: string) {
     const user = await this.model.findByIdAndDelete(id);
+
     if (!user) {
-      throw new Error('User not found');
+      throw new RpcException({
+        message: 'User not found',
+        statusCode: 404,
+      });
     }
 
-    return { status: HttpStatus.OK, message: 'User deleted successfully' };
+    return {
+      statusCode: 200,
+      message: 'User deleted successfully',
+    };
   }
 }

@@ -1,13 +1,25 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Transport } from '@nestjs/microservices/enums/transport.enum';
+import { Transport } from '@nestjs/microservices';
 import { RabbitMQ } from './common/constants';
 
 async function bootstrap() {
   const app = await NestFactory.createMicroservice(AppModule, {
-    Transport: Transport.RMQ,
-    options: { urls: [process.env.AMQP_URL], queue: RabbitMQ.UserQueue },
+    transport: Transport.RMQ,
+    options: {
+      urls: [process.env.AMQP_URL],
+      queue: RabbitMQ.UserQueue,
+      queueOptions: {
+        durable: true,
+      },
+      noAck: false,
+    },
   });
+
+  app.useLogger(console);
+
   await app.listen();
+  console.log('Microservicio RMQ conectado a CloudAMQP');
 }
+
 bootstrap();
