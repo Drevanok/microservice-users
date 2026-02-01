@@ -1,19 +1,9 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  Put,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { UserDTO } from './dto/user.dto';
 import { UserService } from './user.service';
-import { UserMSG } from 'src/common/constants';
+import { UserMSG } from '../common/constants';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import  { UpdateUserMessage } from './dto/update.user.message.dto';
-
+import { UpdateUserDto } from './dto/update.user.dto';
 
 @Controller()
 export class UserController {
@@ -35,13 +25,28 @@ export class UserController {
   }
 
   @MessagePattern(UserMSG.UPDATE)
-  updateUser(@Payload() payload: UpdateUserMessage) {
-    const { id, userDto } = payload;
+  updateUser(@Payload() payload: UpdateUserDto & { id: string }) {
+    const { id, ...userDto } = payload;
     return this.userService.updateUser(id, userDto);
   }
 
   @MessagePattern(UserMSG.DELETE)
-  deleteUser(@Payload('id') id: string) {
+  deleteUser(@Payload() id: string) {
     return this.userService.deleteUser(id);
+  }
+
+  @MessagePattern(UserMSG.VALID_USER)
+  async validateUser(@Payload() payload) {
+    const user = await this.userService.findByUsername(payload.username);
+    if (!user) return null;
+
+    const isValidPass = await this.userService.checkPassword(
+      payload.password,
+      user.password,
+    );
+
+    if (user && isValidPass) return user;
+
+    return null;
   }
 }

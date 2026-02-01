@@ -5,8 +5,9 @@ import { RpcException } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
 
 import { UserDTO } from './dto/user.dto';
-import { IUser } from 'src/common/interfaces/user.interface';
-import { USER } from 'src/common/models/models';
+import { IUser } from '../common/interfaces/user.interface';
+import { USER } from '../common/models/models';
+import { UpdateUserDto } from './dto/update.user.dto';
 
 @Injectable()
 export class UserService {
@@ -74,7 +75,7 @@ export class UserService {
     return user;
   }
 
-  async updateUser(id: string, userDto: UserDTO): Promise<IUser> {
+  async updateUser(id: string, userDto: UpdateUserDto): Promise<IUser> {
     const { username, email, password } = userDto;
 
     const userExists = await this.model.findById(id);

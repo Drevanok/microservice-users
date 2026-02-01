@@ -18,7 +18,6 @@ const user_dto_1 = require("./dto/user.dto");
 const user_service_1 = require("./user.service");
 const constants_1 = require("../common/constants");
 const microservices_1 = require("@nestjs/microservices");
-const update_user_message_dto_1 = require("./dto/update.user.message.dto");
 let UserController = class UserController {
     userService;
     constructor(userService) {
@@ -34,11 +33,20 @@ let UserController = class UserController {
         return this.userService.findOne(id);
     }
     updateUser(payload) {
-        const { id, userDto } = payload;
+        const { id, ...userDto } = payload;
         return this.userService.updateUser(id, userDto);
     }
     deleteUser(id) {
         return this.userService.deleteUser(id);
+    }
+    async validateUser(payload) {
+        const user = await this.userService.findByUsername(payload.username);
+        if (!user)
+            return null;
+        const isValidPass = await this.userService.checkPassword(payload.password, user.password);
+        if (user && isValidPass)
+            return user;
+        return null;
     }
 };
 exports.UserController = UserController;
@@ -66,16 +74,23 @@ __decorate([
     (0, microservices_1.MessagePattern)(constants_1.UserMSG.UPDATE),
     __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [update_user_message_dto_1.UpdateUserMessage]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "updateUser", null);
 __decorate([
     (0, microservices_1.MessagePattern)(constants_1.UserMSG.DELETE),
-    __param(0, (0, microservices_1.Payload)('id')),
+    __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "deleteUser", null);
+__decorate([
+    (0, microservices_1.MessagePattern)(constants_1.UserMSG.VALID_USER),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "validateUser", null);
 exports.UserController = UserController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [user_service_1.UserService])

@@ -12,6 +12,8 @@ const user_module_1 = require("./user/user.module");
 const config_module_1 = require("@nestjs/config/dist/config.module");
 const mongoose_1 = require("@nestjs/mongoose");
 const config_1 = require("@nestjs/config");
+const app_controller_1 = require("./app.controller");
+const app_service_1 = require("./app.service");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -31,6 +33,8 @@ exports.AppModule = AppModule = __decorate([
             }),
             user_module_1.UserModule,
         ],
+        controllers: [app_controller_1.AppController],
+        providers: [app_service_1.AppService],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map
